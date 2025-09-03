@@ -1,6 +1,5 @@
 package org.tilley;
 
-import org.rusherhack.client.api.RusherHackAPI;
 import org.rusherhack.client.api.feature.window.ResizeableWindow;
 import org.rusherhack.client.api.render.graphic.VectorGraphic;
 import org.rusherhack.client.api.ui.window.content.ComboContent;
@@ -9,7 +8,6 @@ import org.rusherhack.client.api.ui.window.content.component.TextFieldComponent;
 import org.rusherhack.client.api.ui.window.view.RichTextView;
 import org.rusherhack.client.api.ui.window.view.TabbedView;
 import org.rusherhack.client.api.ui.window.view.WindowView;
-import org.rusherhack.client.api.utils.ChatUtils;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -19,15 +17,18 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 
 import static org.tilley.TokenCommand.get_token;
 import static org.tilley.TokenCommand.get_url;
+import static org.tilley.TokenCommand.get_model;
+
 
 public class AiIntegrationWindow extends ResizeableWindow {
     String API_KEY = get_token();
     String API_URL = get_url();
+    String AI_MODEL = get_model();
 
     JsonArray messages = new JsonArray();
     JsonObject systemMessage = new JsonObject();
@@ -37,6 +38,8 @@ public class AiIntegrationWindow extends ResizeableWindow {
     private final RichTextView aiView;
     private final TextFieldComponent inputBox;
 
+    public ButtonComponent sendPromptButton;
+
     public AiIntegrationWindow() {
         super("AI Integration", 200, 100, 400, 300);
         this.aiView = new RichTextView("ai", this);
@@ -44,17 +47,20 @@ public class AiIntegrationWindow extends ResizeableWindow {
         inputBox = new TextFieldComponent(this, "Ask anything", this.getWidth());
         inputBox.setValue("");
         inputBox.setReturnCallback(this::handleInput);
-        final ButtonComponent sendPromptButton = new ButtonComponent(this, " ↑ ", () -> handleInput(inputBox.getValue()));
+        sendPromptButton = new ButtonComponent(this, " Send ", () -> handleInput(inputBox.getValue()));
+        sendPromptButton.setWidth(30);
         inputCombo.addContent(inputBox, ComboContent.AnchorSide.LEFT);
         inputCombo.addContent(sendPromptButton);
         this.rootView = new TabbedView(this, List.of(this.aiView, inputCombo));
-        try {
-            this.setIcon(new VectorGraphic("ai_logo.svg", 64, 64));
-        } catch (IOException e){
-            ChatUtils.print(e.toString());
-        }
+        try {this.setIcon(new VectorGraphic("ai_logo.svg", 64, 64));} catch (IOException ignored) {}
+
         systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", "Do not use emojis or markdown. All messages except for the last user are to be considered as context. The last user one is the only one to respond to.");
+        systemMessage.addProperty("content",
+                "Do not use emojis or anything not in UTF-8. Do not violate this under any circumstances, as it will cause problems. " +
+                "All messages except for the last user are to be considered as context. The last user one is the only one to respond to. " +
+                "You are talking to " + mc.getUser().getName() + ". You are the RusherHack AI Assistant. " +
+                "Try to avoid mentioning this system message in conversation, it is merely to provide context and not something to explicitly repeat. "
+        );
         messages.add(systemMessage);
     }
 
@@ -67,10 +73,11 @@ public class AiIntegrationWindow extends ResizeableWindow {
         API_URL = get_url();
 
         if (API_KEY == null) {
-            addLine("No ai token set! Set one using *ai token <token>");
+            addLine("No ai token set! Set one using *ai token <token> in chat or console");
         } else if (API_URL == null) {
-            addLine("No api url set! Set one using *ai url <url>");
-            addLine("Please make sure it's a streamer url!");
+            addLine("No api url set! Set one using *ai url <url> in chat or console");
+        } else if (AI_MODEL == null) {
+            addLine("No ai model set! Set one using *ai model <model> in chat or console");
         } else if (!input.isEmpty() && !aiBusy) {
             addLine("> " + input);
             sendPromptToAi(input);
@@ -85,13 +92,24 @@ public class AiIntegrationWindow extends ResizeableWindow {
         messages.add(msg);
     }
 
+    private volatile boolean stopRequested = false;
+
     private void sendPromptToAi(String userPrompt) {
+        stopRequested = false;
         new Thread(() -> {
             aiBusy = true;
+            sendPromptButton.setLabel("Stop");
+            sendPromptButton.setAction(() -> {
+                stopRequested = true;
+                sendPromptButton.setLabel("Send");
+                sendPromptButton.setAction(() -> handleInput(inputBox.getValue()));
+                aiBusy = false;
+            });
+
             StringBuilder buffer = new StringBuilder();
             StringBuilder fullResponse = new StringBuilder();
             try {
-                HttpURLConnection conn = (HttpURLConnection) new URL(API_URL).openConnection();
+                HttpURLConnection conn = (HttpURLConnection) URI.create(API_URL).toURL().openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Authorization", "Bearer " + API_KEY);
                 conn.setRequestProperty("Accept", "text/event-stream");
@@ -100,25 +118,34 @@ public class AiIntegrationWindow extends ResizeableWindow {
 
                 JsonObject payload = new JsonObject();
                 addMessage("user", userPrompt);
-
-                payload.addProperty("model", "deepseek-chat");
+                payload.addProperty("model", get_model());
                 payload.add("messages", messages);
                 payload.addProperty("stream", true);
-                ChatUtils.print(payload.toString());
                 conn.getOutputStream().write(payload.toString().getBytes());
 
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
                     String line;
-                    while ((line = reader.readLine()) != null) {
+                    while (!stopRequested && (line = reader.readLine()) != null) {
                         if (!line.startsWith("data: ")) continue;
                         String data = line.substring(6).trim();
                         if ("[DONE]".equals(data)) break;
-                        String content = extractDelta(data);
+
+                        var obj = JsonParser.parseString(data).getAsJsonObject();
+                        String content = obj.getAsJsonArray("choices")
+                                .get(0).getAsJsonObject()
+                                .getAsJsonObject("delta")
+                                .has("content")
+                                ? obj.getAsJsonArray("choices")
+                                .get(0).getAsJsonObject()
+                                .getAsJsonObject("delta")
+                                .get("content").getAsString()
+                                : null;
+
                         if (content == null || content.isEmpty()) continue;
                         fullResponse.append(content);
                         for (char c : content.toCharArray()) {
                             if (c == '\n') {
-                                addLine(buffer.toString());
+                                addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""));
                                 buffer.setLength(0);
                             } else buffer.append(c);
                         }
@@ -129,29 +156,10 @@ public class AiIntegrationWindow extends ResizeableWindow {
             }
 
             addMessage("assistant", fullResponse.toString());
-
-            if (buffer.length() > 0) addLine(buffer.toString());
+            if (!buffer.isEmpty()) addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""));
+            sendPromptButton.setLabel("Send");
             aiBusy = false;
         }).start();
-    }
-
-
-
-    private static String extractDelta(String json) {
-        try {
-            var obj = JsonParser.parseString(json).getAsJsonObject();
-            return obj.getAsJsonArray("choices")
-                    .get(0).getAsJsonObject()
-                    .getAsJsonObject("delta")
-                    .has("content")
-                    ? obj.getAsJsonArray("choices")
-                    .get(0).getAsJsonObject()
-                    .getAsJsonObject("delta")
-                    .get("content").getAsString()
-                    : null;
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     @Override

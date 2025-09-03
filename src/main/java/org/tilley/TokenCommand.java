@@ -11,6 +11,7 @@ import java.util.Base64;
     public class TokenCommand extends Command {
         private static final File tokenFile = new File(System.getProperty("user.home"), ".rusherhack/ai_token");
         private static final File urlFile = new File(System.getProperty("user.home"), ".rusherhack/ai_url");
+        private static final File modelFile = new File(System.getProperty("user.home"), ".rusherhack/ai_model");
 
         public TokenCommand() {
             super("ai", "configs for ai integration");
@@ -43,6 +44,20 @@ import java.util.Base64;
             return "url saved to" + urlFile.getPath();
         }
 
+        @CommandExecutor(subCommand = "model")
+        @CommandExecutor.Argument("model name")
+        private String set_model(String model) {
+            try {
+                modelFile.getParentFile().mkdirs();
+                Files.writeString(modelFile.toPath(), Base64.getEncoder().encodeToString(model.getBytes()));
+            } catch (IOException e) {
+                return "error saving model to file";
+            }
+            return "model saved to" + modelFile.getPath();
+        }
+
+
+
         public static String get_token() {
             if (!tokenFile.exists()) return null;
             try {
@@ -60,4 +75,15 @@ import java.util.Base64;
                 return null;
             }
         }
+
+        public static String get_model() {
+            if (!modelFile.exists()) return null;
+            try {
+                return new String(Base64.getDecoder().decode(Files.readString(modelFile.toPath())));
+            } catch (IOException e) {
+                return null;
+            }
+        }
+
+
 }
