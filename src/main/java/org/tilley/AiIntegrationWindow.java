@@ -149,7 +149,7 @@ public class AiIntegrationWindow extends ResizeableWindow {
                         fullResponse.append(content);
                         for (char c : content.toCharArray()) {
                             if (c == '\n') {
-                                addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""), 0xc7c7c7);
+                                addLine(cleanUp(buffer.toString()), 0xc7c7c7);
                                 buffer.setLength(0);
                             } else buffer.append(c);
                         }
@@ -160,11 +160,16 @@ public class AiIntegrationWindow extends ResizeableWindow {
             }
 
             addMessage("assistant", fullResponse.toString());
-            if (!buffer.isEmpty()) addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""), 0xc7c7c7);
+            if (!buffer.isEmpty()) addLine(cleanUp(buffer.toString()), 0xc7c7c7);
             sendPromptButton.setLabel("Send");
             addLine("");
             aiBusy = false;
         }).start();
+    }
+
+    private String cleanUp(String input) {
+        byte[] bytes = input.replaceAll("[*_`~>#\\[\\]]", "").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     @Override
