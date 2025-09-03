@@ -41,7 +41,7 @@ public class AiIntegrationWindow extends ResizeableWindow {
     public ButtonComponent sendPromptButton;
 
     public AiIntegrationWindow() {
-        super("AI Integration", 200, 100, 400, 300);
+        super("Rusherhack AI Integration", 200, 100, 400, 300);
         this.aiView = new RichTextView("ai", this);
         final ComboContent inputCombo = new ComboContent(this);
         inputBox = new TextFieldComponent(this, "Ask anything", this.getWidth());
@@ -65,7 +65,11 @@ public class AiIntegrationWindow extends ResizeableWindow {
     }
 
     private void addLine(String line) {
-        if (line != null && !line.isEmpty()) aiView.add(line, -1);
+        aiView.add(line, -1);
+    }
+
+    private void addLine(String line, int color) {
+        aiView.add(line, color);
     }
 
     private void handleInput(String input) {
@@ -145,7 +149,7 @@ public class AiIntegrationWindow extends ResizeableWindow {
                         fullResponse.append(content);
                         for (char c : content.toCharArray()) {
                             if (c == '\n') {
-                                addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""));
+                                addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""), 0xc7c7c7);
                                 buffer.setLength(0);
                             } else buffer.append(c);
                         }
@@ -156,8 +160,9 @@ public class AiIntegrationWindow extends ResizeableWindow {
             }
 
             addMessage("assistant", fullResponse.toString());
-            if (!buffer.isEmpty()) addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""));
+            if (!buffer.isEmpty()) addLine(buffer.toString().replaceAll("[*_`~>#\\[\\]]", ""), 0xc7c7c7);
             sendPromptButton.setLabel("Send");
+            addLine("");
             aiBusy = false;
         }).start();
     }
