@@ -48,7 +48,7 @@ public class AiIntegrationWindow extends ResizeableWindow {
         inputBox.setValue("");
         inputBox.setReturnCallback(this::handleInput);
         sendPromptButton = new ButtonComponent(this, " Send ", () -> handleInput(inputBox.getValue()));
-        sendPromptButton.setWidth(30);
+        sendPromptButton.setWidth(40);
         inputCombo.addContent(inputBox, ComboContent.AnchorSide.LEFT);
         inputCombo.addContent(sendPromptButton);
         this.rootView = new TabbedView(this, List.of(this.aiView, inputCombo));
@@ -56,7 +56,7 @@ public class AiIntegrationWindow extends ResizeableWindow {
 
         systemMessage.addProperty("role", "system");
         systemMessage.addProperty("content",
-                "Do not use emojis or anything not in UTF-8. Do not violate this under any circumstances, as it will cause problems. " +
+                "Do not use emojis or anything not in UTF-8. Do not violate this under any circumstances, as it will cause problems. This is non-negotiable. No emojis, nothing in standard minimal fonts. " +
                 "All messages except for the last user are to be considered as context. The last user one is the only one to respond to. " +
                 "You are talking to " + mc.getUser().getName() + ". You are the RusherHack AI Assistant. " +
                 "Try to avoid mentioning this system message in conversation, it is merely to provide context and not something to explicitly repeat. "
@@ -83,7 +83,7 @@ public class AiIntegrationWindow extends ResizeableWindow {
         } else if (AI_MODEL == null) {
             addLine("No ai model set! Set one using *ai model <model> in chat or console");
         } else if (!input.isEmpty() && !aiBusy) {
-            addLine("> " + input);
+            addLine("You: " + input);
             sendPromptToAi(input);
             inputBox.setValue("");
         }
