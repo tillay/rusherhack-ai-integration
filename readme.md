@@ -14,7 +14,7 @@ Set the API url to use with streaming enabled. For deepseek, it is `https://api.
 
 Set ur token with this. It should be like sk-e3wd8u9redwujbwedrsug9f4rw7 or smth
 
-*ai model <model name>
+`*ai model <model name>`
 
 Choose the model. for deepseek it's `deepseek-chat`
 
