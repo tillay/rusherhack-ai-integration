@@ -1,0 +1,15 @@
+{
+  "Plugin-Class": "org.tilley.AiPlugin",
+  "Name": "${project.plugin_name}",
+  "Version": "${project.plugin_version}",
+  "Description": "Rusherhack is missing AI and is terribly outdated. This plugin brings the mod into the modern age.",
+  "Authors": [
+    "Tilley8"
+  ],
+  "Minecraft-Versions": [
+    "1.21.4",
+    "1.21.3",
+    "1.21.2",
+    "1.21.1"
+  ]
+}
